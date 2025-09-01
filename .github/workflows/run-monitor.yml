@@ -3,7 +3,7 @@ name: Run Arbitrage Monitor
 on:
   workflow_dispatch:   # manual trigger
   schedule:
-    - cron: "0 */6 * * *"   # every 6 hours
+    - cron: "20 21 * * *"   # every day at 21:20 UTC (= 23:20 NL in summer)
 
 jobs:
   run:
@@ -28,7 +28,7 @@ jobs:
         run: python arbitrage_monitor.py
 
       - name: Upload results
-        uses: actions/upload-artifact@v4   # ✅ updated to v4
+        uses: actions/upload-artifact@v4
         with:
           name: arbitrage-results
           path: arbitrage_log.csv
