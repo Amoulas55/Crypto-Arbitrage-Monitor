@@ -1,9 +1,9 @@
 name: Run Arbitrage Monitor
 
 on:
-  workflow_dispatch:        # allows manual “Run workflow” button
-  # schedule:               # uncomment to auto-run hourly (UTC)
-  #   - cron: "0 * * * *"
+  schedule:
+    - cron: "0 */6 * * *"   # run every 6 hours
+  workflow_dispatch:         # still allow manual runs
 
 jobs:
   run:
