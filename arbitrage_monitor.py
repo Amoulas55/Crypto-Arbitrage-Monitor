@@ -9,7 +9,7 @@ EXCHANGES = {
     "kraken": "https://api.kraken.com/0/public/Ticker?pair=XBTUSDT"  # Kraken uses XBT for BTC
 }
 
-THRESHOLD = 0.001  # % spread threshold (set low so we always log something)
+THRESHOLD = 0.001  # % spread threshold
 
 def fetch_prices():
     prices = {}
@@ -22,7 +22,6 @@ def fetch_prices():
         # Kraken
         k = requests.get(EXCHANGES["kraken"]).json()
         if "result" in k and len(k["result"]) > 0:
-            # dynamically grab the first trading pair (avoids KeyError)
             k_data = list(k["result"].values())[0]
             prices["kraken_bid"] = float(k_data["b"][0])
             prices["kraken_ask"] = float(k_data["a"][0])
@@ -52,13 +51,12 @@ def check_spread(prices):
 
     return results
 
-def log_results(results, prices, overwrite=False):
-    # Always show current prices
+def log_results(results, prices):
     print(f"[{datetime.now(timezone.utc)}] Binance: bid={prices.get('binance_bid')} ask={prices.get('binance_ask')} | "
           f"Kraken: bid={prices.get('kraken_bid')} ask={prices.get('kraken_ask')}")
 
     if not results:
-        return
+        return None
 
     df = pd.DataFrame([{
         "timestamp": datetime.now(timezone.utc),
@@ -72,41 +70,29 @@ def log_results(results, prices, overwrite=False):
         "kraken_ask": prices["kraken_ask"]
     } for r in results])
 
-    # ✅ Overwrite CSV each run
-    df.to_csv("arbitrage_log.csv", index=False)
-    print("💰 Arbitrage opportunity found:")
-    print(df)
+    return df
 
 def main():
     print("Starting Crypto Arbitrage Monitor...")
 
     all_results = []
-    for i in range(10):  # run only 10 iterations
+    while len(all_results) < 5:  # ✅ Stop after 5 rows
         prices = fetch_prices()
         if prices:
             results = check_spread(prices)
-            if results:
-                all_results.extend([{
-                    "timestamp": datetime.now(timezone.utc),
-                    "buy_exchange": r[0],
-                    "sell_exchange": r[1],
-                    "spread_%": round(r[2], 3),
-                    "profit_per_BTC": round(r[3], 2),
-                    "binance_bid": prices["binance_bid"],
-                    "binance_ask": prices["binance_ask"],
-                    "kraken_bid": prices["kraken_bid"],
-                    "kraken_ask": prices["kraken_ask"]
-                } for r in results])
+            df = log_results(results, prices)
+            if df is not None:
+                all_results.extend(df.to_dict("records"))
+
         time.sleep(10)
 
-    # ✅ Save all results at once (overwrite file)
-    if all_results:
-        df = pd.DataFrame(all_results)
-        df.to_csv("arbitrage_log.csv", index=False)
-        print("💰 Final Arbitrage Results:")
-        print(df)
+    # ✅ Save final results (always creates the CSV)
+    final_df = pd.DataFrame(all_results)
+    final_df.to_csv("arbitrage_log.csv", index=False)
+    print("💰 Final Arbitrage Results:")
+    print(final_df)
 
-    print("✅ Finished 10 iterations. Exiting.")
+    print("✅ Stopped after 5 rows.")
 
 if __name__ == "__main__":
     main()
