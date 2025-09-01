@@ -1,27 +1,34 @@
 name: Run Arbitrage Monitor
 
 on:
+  workflow_dispatch:   # manual trigger
   schedule:
-    - cron: "0 */6 * * *"   # run every 6 hours
-  workflow_dispatch:         # still allow manual runs
+    - cron: "0 */6 * * *"   # every 6 hours
 
 jobs:
   run:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-      - name: Build Docker image
-        run: docker build -t arbitrage-monitor .
-
-      - name: Run monitor (save CSV to workspace)
-        run: docker run --rm -v "${{ github.workspace }}:/app" arbitrage-monitor
-
-      - name: Upload CSV (if created)
-        uses: actions/upload-artifact@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          name: arbitrage_log
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Clean old CSV
+        run: rm -f arbitrage_log.csv
+
+      - name: Run monitor
+        run: python arbitrage_monitor.py
+
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: arbitrage-results
           path: arbitrage_log.csv
-          if-no-files-found: ignore
