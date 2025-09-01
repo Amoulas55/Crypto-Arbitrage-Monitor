@@ -9,15 +9,20 @@ EXCHANGES = {
     "kraken": "https://api.kraken.com/0/public/Ticker?pair=XBTUSDT"  # Kraken uses XBT for BTC
 }
 
-THRESHOLD = 0.001  # % spread threshold
+THRESHOLD = 0.001  # % spread threshold (set low so we always log something)
+
 
 def fetch_prices():
     prices = {}
     try:
         # Binance
         b = requests.get(EXCHANGES["binance"]).json()
-        prices["binance_bid"] = float(b["bidPrice"])
-        prices["binance_ask"] = float(b["askPrice"])
+        if "bidPrice" in b and "askPrice" in b:
+            prices["binance_bid"] = float(b["bidPrice"])
+            prices["binance_ask"] = float(b["askPrice"])
+        else:
+            print("⚠️ Binance response did not contain bid/ask:", b)
+            return {}
 
         # Kraken
         k = requests.get(EXCHANGES["kraken"]).json()
@@ -27,14 +32,18 @@ def fetch_prices():
             prices["kraken_ask"] = float(k_data["a"][0])
         else:
             print("⚠️ Kraken response did not contain prices:", k)
+            return {}
 
     except Exception as e:
         print(f"Error fetching prices: {e}")
+        return {}
+
     return prices
+
 
 def check_spread(prices):
     results = []
-    if not prices or "kraken_bid" not in prices:
+    if not prices or "kraken_bid" not in prices or "binance_bid" not in prices:
         return results
 
     # Buy Binance → Sell Kraken
@@ -51,11 +60,12 @@ def check_spread(prices):
 
     return results
 
+
 def main():
     print("Starting Crypto Arbitrage Monitor...")
 
     all_results = []
-    for i in range(20):  # safety cap: max 20 iterations
+    for i in range(5):  # run 5 iterations for faster CI/CD runs
         prices = fetch_prices()
         if prices:
             results = check_spread(prices)
@@ -71,21 +81,20 @@ def main():
                     "kraken_bid": prices["kraken_bid"],
                     "kraken_ask": prices["kraken_ask"]
                 } for r in results])
+        time.sleep(5)
 
-        # ✅ Stop once we have 5 rows
-        if len(all_results) >= 5:
-            break
+    # ✅ Always save a CSV (even empty)
+    df = pd.DataFrame(all_results)
+    df.to_csv("arbitrage_log.csv", index=False)
 
-        time.sleep(10)
-
-    # Save results (overwrite each run)
-    if all_results:
-        df = pd.DataFrame(all_results[:5])  # max 5 rows
-        df.to_csv("arbitrage_log.csv", index=False)
+    if df.empty:
+        print("⚠️ No arbitrage opportunities found this run.")
+    else:
         print("💰 Final Arbitrage Results:")
         print(df)
 
     print("✅ Finished monitor. Exiting.")
+
 
 if __name__ == "__main__":
     main()
