@@ -1,0 +1,27 @@
+name: Run Arbitrage Monitor
+
+on:
+  workflow_dispatch:        # allows manual “Run workflow” button
+  # schedule:               # uncomment to auto-run hourly (UTC)
+  #   - cron: "0 * * * *"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t arbitrage-monitor .
+
+      - name: Run monitor (save CSV to workspace)
+        run: docker run --rm -v "${{ github.workspace }}:/app" arbitrage-monitor
+
+      - name: Upload CSV (if created)
+        uses: actions/upload-artifact@v4
+        with:
+          name: arbitrage_log
+          path: arbitrage_log.csv
+          if-no-files-found: ignore
