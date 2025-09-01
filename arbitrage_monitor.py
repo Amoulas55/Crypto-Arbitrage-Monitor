@@ -51,48 +51,41 @@ def check_spread(prices):
 
     return results
 
-def log_results(results, prices):
-    print(f"[{datetime.now(timezone.utc)}] Binance: bid={prices.get('binance_bid')} ask={prices.get('binance_ask')} | "
-          f"Kraken: bid={prices.get('kraken_bid')} ask={prices.get('kraken_ask')}")
-
-    if not results:
-        return None
-
-    df = pd.DataFrame([{
-        "timestamp": datetime.now(timezone.utc),
-        "buy_exchange": r[0],
-        "sell_exchange": r[1],
-        "spread_%": round(r[2], 3),
-        "profit_per_BTC": round(r[3], 2),
-        "binance_bid": prices["binance_bid"],
-        "binance_ask": prices["binance_ask"],
-        "kraken_bid": prices["kraken_bid"],
-        "kraken_ask": prices["kraken_ask"]
-    } for r in results])
-
-    return df
-
 def main():
     print("Starting Crypto Arbitrage Monitor...")
 
     all_results = []
-    while len(all_results) < 5:  # ✅ Stop after 5 rows
+    for i in range(20):  # safety cap: max 20 iterations
         prices = fetch_prices()
         if prices:
             results = check_spread(prices)
-            df = log_results(results, prices)
-            if df is not None:
-                all_results.extend(df.to_dict("records"))
+            if results:
+                all_results.extend([{
+                    "timestamp": datetime.now(timezone.utc),
+                    "buy_exchange": r[0],
+                    "sell_exchange": r[1],
+                    "spread_%": round(r[2], 3),
+                    "profit_per_BTC": round(r[3], 2),
+                    "binance_bid": prices["binance_bid"],
+                    "binance_ask": prices["binance_ask"],
+                    "kraken_bid": prices["kraken_bid"],
+                    "kraken_ask": prices["kraken_ask"]
+                } for r in results])
+
+        # ✅ Stop once we have 5 rows
+        if len(all_results) >= 5:
+            break
 
         time.sleep(10)
 
-    # ✅ Save final results (always creates the CSV)
-    final_df = pd.DataFrame(all_results)
-    final_df.to_csv("arbitrage_log.csv", index=False)
-    print("💰 Final Arbitrage Results:")
-    print(final_df)
+    # Save results (overwrite each run)
+    if all_results:
+        df = pd.DataFrame(all_results[:5])  # max 5 rows
+        df.to_csv("arbitrage_log.csv", index=False)
+        print("💰 Final Arbitrage Results:")
+        print(df)
 
-    print("✅ Stopped after 5 rows.")
+    print("✅ Finished monitor. Exiting.")
 
 if __name__ == "__main__":
     main()
