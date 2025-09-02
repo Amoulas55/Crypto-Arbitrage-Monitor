@@ -10,7 +10,7 @@ A lightweight Python project that connects to Binance and Kraken APIs to monitor
 * Detects arbitrage spreads above a configurable threshold.
 * Simulates profit per BTC (without executing trades).
 * Logs results with timestamp into a CSV file.
-* Runs locally or inside Docker with one command.
+* Runs locally, inside Docker, or automatically via GitHub Actions. ✅
 
 ---
 
@@ -45,6 +45,42 @@ docker run --rm -v ${PWD}:/app arbitrage-monitor
 
 ---
 
+## ⚙️ CI/CD with GitHub Actions (Scheduled Runs)
+
+This project includes a **GitHub Actions workflow** that runs the monitor automatically on a schedule.
+
+* The workflow installs dependencies, runs the script, and uploads the results as an artifact.
+* By default, it runs at **23:20 UTC every day**, but you can adjust the `cron` schedule in `.github/workflows/run.yml`.
+* Artifacts (CSV logs) can be downloaded from the **Actions tab** in your repository.
+
+Example snippet from `.github/workflows/run.yml`:
+
+```yaml
+name: Run Arbitrage Monitor
+
+on:
+  schedule:
+    - cron: "20 23 * * *"   # Runs daily at 23:20 UTC
+  workflow_dispatch:         # Allow manual runs
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python arbitrage_monitor.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arbitrage-results
+          path: arbitrage_log.csv
+```
+
+---
+
 ## 📂 Project Structure
 
 ```
@@ -53,6 +89,8 @@ crypto-arbitrage-monitor/
 │── requirements.txt       # Python dependencies
 │── Dockerfile             # Container setup
 │── arbitrage_log.csv      # Logged opportunities (sample)
+│── .github/workflows/     # CI/CD workflows
+│   └── run.yml
 │── README.md              # Project documentation
 ```
 
@@ -72,7 +110,6 @@ timestamp                 buy_exchange  sell_exchange  spread_%  profit_per_BTC
 
 ## 🌍 Future Extensions
 
-* CI/CD with GitHub Actions (scheduled runs).
 * Deploy to cloud for 24/7 monitoring.
 * Add Streamlit dashboard for live visualization.
 * Backtesting with historical data.
